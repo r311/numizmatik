@@ -1,18 +1,17 @@
-package com.example.r311.numizmatik;
+package com.example.r311.numizmatik.data;
 
 public class Kovanci {
-    int uuid;
+    String uuid;
+    String slika;
     String drzava;
     int vrednost;
-    String slika;
-    Boolean imam;
     int	stevec;
 
-    public int getUuid() {
+    public String getUuid() {
         return uuid;
     }
 
-    public void setUuid(int uuid) {
+    public void setUuid(String uuid) {
         this.uuid = uuid;
     }
 
@@ -40,14 +39,6 @@ public class Kovanci {
         this.slika = slika;
     }
 
-    public Boolean getImam() {
-        return imam;
-    }
-
-    public void setImam(Boolean imam) {
-        this.imam = imam;
-    }
-
     public int getStevec() {
         return stevec;
     }
@@ -56,12 +47,21 @@ public class Kovanci {
         this.stevec = stevec;
     }
 
-    public Kovanci(int uuid, String drzava, int vrednost, String slika, Boolean imam, int stevec) {
+    public Kovanci() {
+    }
+
+    public Kovanci(String uuid, String drzava, int vrednost, String slika) {
         this.uuid = uuid;
         this.drzava = drzava;
         this.vrednost = vrednost;
         this.slika = slika;
-        this.imam = imam;
-        this.stevec = stevec;
+    }
+
+
+
+    public Kovanci(String drzava, int vrednost, String slika) {
+        this.drzava = drzava;
+        this.vrednost = vrednost;
+        this.slika = slika;
     }
 }

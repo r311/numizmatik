@@ -1,11 +1,11 @@
-package com.example.r311.numizmatik;
+package com.example.r311.numizmatik.data;
 
 import java.util.ArrayList;
 
 public class SeznamKovancev {
     String imeSeznama;
     String vrstaSeznama;
-    ArrayList<Kovanci> arrayKovanci;
+    public ArrayList<Kovanci> arrayKovanci;
 
     public SeznamKovancev(String imeSeznama, String vrstaSeznama) {
         this.imeSeznama = imeSeznama;
