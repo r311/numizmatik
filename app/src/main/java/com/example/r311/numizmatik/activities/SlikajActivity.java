@@ -1,11 +1,15 @@
 package com.example.r311.numizmatik.activities;
 
+import android.annotation.SuppressLint;
+import android.app.Dialog;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -15,6 +19,7 @@ import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.view.Window;
 import android.webkit.MimeTypeMap;
 import android.widget.Button;
 import android.widget.EditText;
@@ -32,8 +37,11 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.StorageTask;
@@ -43,20 +51,31 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
+import org.opencv.core.DMatch;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfDMatch;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfInt;
+import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
+import org.opencv.features2d.DescriptorExtractor;
+import org.opencv.features2d.DescriptorMatcher;
+import org.opencv.features2d.FeatureDetector;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -67,6 +86,8 @@ public class SlikajActivity extends AppCompatActivity {
     private Button btnUpload;
     private Button btnBack;
     private Button btnCompare;
+    private Button btnCrop;
+    private Button btnOK;
     private EditText txtDrzava;
     private EditText txtVrednost;
     private ProgressBar pgBar;
@@ -84,6 +105,7 @@ public class SlikajActivity extends AppCompatActivity {
     Uri mImgURI;
     Bitmap bitmap;
     DatabaseReference database;
+    Context context;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -101,16 +123,86 @@ public class SlikajActivity extends AppCompatActivity {
         }
     };
 
+    @SuppressLint("StaticFieldLeak")
+    AsyncTask<ArrayList<Kovanci>, Void, Bitmap> compareTask = new AsyncTask<ArrayList<Kovanci>, Void, Bitmap>() {
+        @Override
+        protected Bitmap doInBackground(ArrayList<Kovanci>... voids) {
+            double bestSimiliarity = 0;
+            Kovanci bestKovanc = new Kovanci();
+            Bitmap bestBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);;
+            for(Kovanci k: voids[0]) {
+                try {
+                    URL url = new URL(k.getSlika());
+                    Bitmap image = BitmapFactory.decodeStream(url.openStream());
+                    Log.i("ParseIMG", k.getSlika());
+                    double similarity = compareHist(image);
+                    if(similarity > bestSimiliarity){
+                        bestSimiliarity = similarity;
+                        bestKovanc = k;
+                        bestBitmap = image;
+                    }
+                } catch (IOException e) {
+                    Log.d("ParseIMG", e.toString());
+                }
+            }
+
+            Log.i("BestKovanc", bestKovanc.getSlika());
+
+            return bestBitmap;
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap localBitmap) {
+            super.onPostExecute(localBitmap);
+            pgBar.setVisibility(View.INVISIBLE);
+            final Dialog settingsDialog = new Dialog(context);
+            settingsDialog.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
+            settingsDialog.setContentView(getLayoutInflater().inflate(R.layout.popup_image
+                    , null));
+            ImageView ivPopup = (ImageView) settingsDialog.findViewById(R.id.popupImage);
+            ivPopup.setImageBitmap(localBitmap);
+
+            btnOK = (Button) settingsDialog.findViewById(R.id.btnOK);
+            btnOK.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    settingsDialog.dismiss();
+                }
+            });
+            settingsDialog.show();
+        }
+    };
+
+    @SuppressLint("StaticFieldLeak")
+    AsyncTask<Void, Void, Void> cropTask = new AsyncTask<Void, Void, Void>() {
+        @Override
+        protected Void doInBackground(Void... voids) {
+            cropPicture(mImgURI);
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+
+            imageView.setImageURI(mImgURI);
+            pgBar.setVisibility(View.INVISIBLE);
+        }
+    };
+
+    boolean trigger = true;
     FirebaseAuth mAuth = FirebaseAuth.getInstance();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_slikaj);
 
+        context = this;
         imageView = (ImageView) findViewById(R.id.imageView);
         btnUpload = (Button) findViewById(R.id.btnUpload);
         btnBack = (Button) findViewById(R.id.btnBackSlikaj);
         btnCompare = (Button) findViewById(R.id.btnCompare);
+        btnCrop = (Button) findViewById(R.id.btnCrop);
 
         txtDrzava = (EditText) findViewById(R.id.txtDrzava);
         txtVrednost = (EditText) findViewById(R.id.txtVrednost);
@@ -123,6 +215,7 @@ public class SlikajActivity extends AppCompatActivity {
         //startActivityForResult(intent,0);
         dispatchTakePictureIntent();
 
+
         btnUpload.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
                 FirebaseUser user = mAuth.getCurrentUser();
@@ -134,12 +227,45 @@ public class SlikajActivity extends AppCompatActivity {
             }
         });
 
+        btnCrop.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                pgBar.setVisibility(View.VISIBLE);
+                cropTask.execute();
+            }
+        });
+
         btnCompare.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                cropPicture(mImgURI);
+                //cropPicture(mImgURI);
+                pgBar.setVisibility(View.VISIBLE);
+                trigger = true;
+                final ArrayList<Kovanci> kovSeznam = new ArrayList<Kovanci>();
+                DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference().child("slike");
+                dbRef.addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        if(trigger) {
+                            ArrayList<Kovanci> kovancList = new ArrayList<Kovanci>();
+                            for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()) {
+                                Kovanci k = dataSnapshot1.getValue(Kovanci.class);
+                                //compare(k.getSlika());
+                                kovancList.add(k);
+                            }
+                            compareTask.execute(kovancList);
+                            trigger = false;
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                        Log.d("DB", "ERROR");
+                    }
+                });
             }
         });
+
 
         btnBack.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -282,8 +408,6 @@ public class SlikajActivity extends AppCompatActivity {
     }
 
     private void cropPicture(Uri slikaPath){ //Bitmap
-
-        pgBar.setVisibility(View.VISIBLE);
         Mat mat = new Mat();
         Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         Utils.bitmapToMat(bmp32, mat);
@@ -332,12 +456,99 @@ public class SlikajActivity extends AppCompatActivity {
 
         Bitmap nBit = Bitmap.createBitmap(cropped.cols(), cropped.rows(), Bitmap.Config.ARGB_8888);;
         Utils.matToBitmap(cropped, nBit);
-        imageView.setImageBitmap(nBit);
         mImgURI = getImageUri(this, nBit);
         bitmap=nBit;
+    }
 
-        pgBar.setVisibility(View.INVISIBLE);
+    private double compareHist(Bitmap compareImage){
+        //cropPicture(mImgURI);
+        Mat srcBase = new Mat(), hsvBase = new Mat();
+        Mat srcTest = new Mat(), hsvTest = new Mat();
 
+        Bitmap bmp = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bmp, srcBase);
+
+        Bitmap bmpp = compareImage.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bmpp, srcTest);
+
+        Imgproc.cvtColor(srcBase,hsvBase, Imgproc.COLOR_BGR2HSV);
+        Imgproc.cvtColor(srcTest,hsvTest, Imgproc.COLOR_BGR2HSV);
+
+        int h_bins = 50, s_bins = 60;
+        int[] histSize = {h_bins, s_bins};
+        float ranges[] = {0, 180, 0, 256};  //prvi je za HUE, drugi za saturation
+        int channels[] = {0, 1};
+
+        Mat histBase = new Mat(), histTest = new Mat();
+
+        List<Mat> hsvBaseList = Arrays.asList(hsvBase);
+        Imgproc.calcHist(hsvBaseList, new MatOfInt(channels), new Mat(), histBase, new MatOfInt(histSize), new MatOfFloat(ranges), false);
+        Core.normalize(histBase, histBase, 0, 1, Core.NORM_MINMAX);
+
+        List<Mat> hsvTest1List = Arrays.asList(hsvTest);
+        Imgproc.calcHist(hsvTest1List, new MatOfInt(channels), new Mat(), histTest, new MatOfInt(histSize), new MatOfFloat(ranges), false);
+        Core.normalize(histTest, histTest, 0, 1, Core.NORM_MINMAX);
+
+        //double baseBase = Imgproc.compareHist( histBase, histBase, 0);
+        double baseTest1 = Imgproc.compareHist( histBase, histTest, 0 );
+
+
+        //if (1 - baseTest1 >= 1){
+        Log.i("Value baseTEST: ", String.valueOf(baseTest1));
+        return baseTest1;
+       // }
+    }
+
+    private void compare(String compareUrl){
+        Mat img1 = new Mat();
+        Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bmp32, img1);
+
+        Mat img2 = new Mat();
+        Bitmap bmp322 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        Utils.bitmapToMat(bmp322, img2);
+
+
+        MatOfKeyPoint keypoints1 = new MatOfKeyPoint();
+        MatOfKeyPoint keypoints2 = new MatOfKeyPoint();
+        Mat descriptors1 = new Mat();
+        Mat descriptors2 = new Mat();
+
+        //Definition of ORB keypoint detector and descriptor extractors
+        FeatureDetector detector = FeatureDetector.create(FeatureDetector.ORB);
+        DescriptorExtractor extractor = DescriptorExtractor.create(DescriptorExtractor.ORB);
+
+        //Detect keypoints
+        detector.detect(img1, keypoints1);
+        detector.detect(img2, keypoints2);
+        //Extract descriptors
+        extractor.compute(img1, keypoints1, descriptors1);
+        extractor.compute(img2, keypoints2, descriptors2);
+
+        //Definition of descriptor matcher
+        DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
+
+        //Match points of two images
+        MatOfDMatch matches = new MatOfDMatch();
+        matcher.match(descriptors1,descriptors2 ,matches);
+        Log.d("Matches", String.valueOf(matches.size()));
+        Log.d("size ", matches.size().toString());
+
+
+        int DIST_LIMIT = 80;
+        List<DMatch> matchList = matches.toList();
+        List<DMatch> matches_final = new ArrayList<DMatch>();
+        for(int i=0; i<matchList.size(); i++){
+            if(matchList.get(i).distance <= DIST_LIMIT){
+                matches_final.add(matches.toList().get(i));
+            }
+        }
+
+        MatOfDMatch matches_final_mat = new MatOfDMatch();
+        matches_final_mat.fromList(matches_final);
+        for(int i=0; i< matches_final.size(); i++){
+            Log.d("final Matches: ", matches_final.get(i).toString());
+        }
     }
 
     private void upload(){
