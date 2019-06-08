@@ -7,12 +7,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.content.FileProvider;
@@ -29,11 +27,8 @@ import android.widget.Toast;
 
 import com.example.r311.numizmatik.R;
 import com.example.r311.numizmatik.data.Kovanci;
-import com.google.android.gms.tasks.Continuation;
-import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -53,19 +48,13 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
-import org.opencv.core.DMatch;
 import org.opencv.core.Mat;
-import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
-import org.opencv.core.MatOfKeyPoint;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.features2d.DescriptorExtractor;
-import org.opencv.features2d.DescriptorMatcher;
-import org.opencv.features2d.FeatureDetector;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayOutputStream;
@@ -92,10 +81,10 @@ public class SlikajActivity extends AppCompatActivity {
     private EditText txtVrednost;
     private ProgressBar pgBar;
     private String filePath;
-    private final int PICK_IMAGE_REQUEST = 71;
 
-    StorageReference storage;
     // Create a storage reference from our app
+    StorageReference storage;
+
     StorageReference storageRef;
     // Create a reference to "kovanci.jpg"
     StorageReference mountainsRef;
@@ -105,6 +94,7 @@ public class SlikajActivity extends AppCompatActivity {
     Uri mImgURI;
     Bitmap bitmap;
     DatabaseReference database;
+
     Context context;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
@@ -499,159 +489,4 @@ public class SlikajActivity extends AppCompatActivity {
        // }
     }
 
-    private void compare(String compareUrl){
-        Mat img1 = new Mat();
-        Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-        Utils.bitmapToMat(bmp32, img1);
-
-        Mat img2 = new Mat();
-        Bitmap bmp322 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-        Utils.bitmapToMat(bmp322, img2);
-
-
-        MatOfKeyPoint keypoints1 = new MatOfKeyPoint();
-        MatOfKeyPoint keypoints2 = new MatOfKeyPoint();
-        Mat descriptors1 = new Mat();
-        Mat descriptors2 = new Mat();
-
-        //Definition of ORB keypoint detector and descriptor extractors
-        FeatureDetector detector = FeatureDetector.create(FeatureDetector.ORB);
-        DescriptorExtractor extractor = DescriptorExtractor.create(DescriptorExtractor.ORB);
-
-        //Detect keypoints
-        detector.detect(img1, keypoints1);
-        detector.detect(img2, keypoints2);
-        //Extract descriptors
-        extractor.compute(img1, keypoints1, descriptors1);
-        extractor.compute(img2, keypoints2, descriptors2);
-
-        //Definition of descriptor matcher
-        DescriptorMatcher matcher = DescriptorMatcher.create(DescriptorMatcher.BRUTEFORCE_HAMMING);
-
-        //Match points of two images
-        MatOfDMatch matches = new MatOfDMatch();
-        matcher.match(descriptors1,descriptors2 ,matches);
-        Log.d("Matches", String.valueOf(matches.size()));
-        Log.d("size ", matches.size().toString());
-
-
-        int DIST_LIMIT = 80;
-        List<DMatch> matchList = matches.toList();
-        List<DMatch> matches_final = new ArrayList<DMatch>();
-        for(int i=0; i<matchList.size(); i++){
-            if(matchList.get(i).distance <= DIST_LIMIT){
-                matches_final.add(matches.toList().get(i));
-            }
-        }
-
-        MatOfDMatch matches_final_mat = new MatOfDMatch();
-        matches_final_mat.fromList(matches_final);
-        for(int i=0; i< matches_final.size(); i++){
-            Log.d("final Matches: ", matches_final.get(i).toString());
-        }
-    }
-
-    private void upload(){
-        DateFormat df = new SimpleDateFormat("dd-MM-yy-HH-mm-ss");
-        Date date = new Date();
-        //////////////////////////////////
-        String cas = df.toString();
-        storage = FirebaseStorage.getInstance().getReference("slike");
-        storageRef = storage;
-        mountainsRef = storageRef.child("kovanci"+ df.format(date).toString().replace("-","") +".jpg");
-        mountainImagesRef = storageRef.child("slike/kovanci.jpg");
-
-        // While the file names are the same, the references point to different files
-        mountainsRef.getName().equals(mountainImagesRef.getName());    // true
-        mountainsRef.getPath().equals(mountainImagesRef.getPath());    // falseStorageActivity.java
-
-        imageView.setDrawingCacheEnabled(true);
-        imageView.buildDrawingCache();
-        Bitmap bitmap = ((BitmapDrawable) imageView.getDrawable()).getBitmap();
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-        byte[] data = baos.toByteArray();
-
-        uploadTask = mountainsRef.putBytes(data);
-        Log.i("path", String.valueOf(mountainsRef.getPath()));
-
-        //filePath = "gs://numizmatik-996.appspot.com"+mountainsRef.getPath();
-
-        Log.i("path", String.valueOf(filePath));
-        //////////////////////////////////
-        if (filePath != null) {
-            Handler handler = new Handler();
-            handler.postDelayed(new Runnable() {    //delaya za 0.3 sekunde
-                @Override
-                public void run() {
-                    pgBar.setProgress(0);
-                }
-            }, 300);
-            pgBar.setVisibility(View.INVISIBLE);
-
-            //int vrednost = Integer.parseInt(txtVrednost.getText().toString());
-
-            //////////
-            /*
-            DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
-            DatabaseReference imagesRef = rootRef.child("slike");
-            ValueEventListener valueEventListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot dataSnapshot) {
-                    for(DataSnapshot ds : dataSnapshot.getChildren()) {
-                        String url = ds.getValue(String.class);
-                        Log.d("TAG", url);
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError databaseError) {}
-            };
-            imagesRef.addListenerForSingleValueEvent(valueEventListener);
-            */
-            //////////
-
-            Toast.makeText(SlikajActivity.this, "Upload successful", Toast.LENGTH_LONG).show();
-            Kovanci uploadKovanec = new Kovanci(
-                    UUID.randomUUID().toString().replace("-", ""),
-                    txtDrzava.getText().toString().trim(),
-                    Integer.parseInt(txtVrednost.getText().toString()),
-                    filePath
-            );
-
-            database.child(String.valueOf(System.currentTimeMillis()).replace("."+"#"+"$"+","+"["+"]", "")
-                    + df.format(date).toString().replace("-","")).setValue(uploadKovanec);
-        }
-        else{
-            Toast.makeText(this, "Ni slike", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void downloadFromServer(){
-        Uri file = Uri.fromFile(new File("path/to/kovanci.jpg"));
-        final StorageReference ref = storageRef.child("slike/kovanci.jpg");
-        uploadTask = ref.putFile(file);
-
-        Task<Uri> urlTask = uploadTask.continueWithTask(new Continuation<UploadTask.TaskSnapshot, Task<Uri>>() {
-            @Override
-            public Task<Uri> then(@NonNull Task<UploadTask.TaskSnapshot> task) throws Exception {
-                if (!task.isSuccessful()) {
-                    throw task.getException();
-                }
-
-                // Continue with the task to get the download URL
-                return ref.getDownloadUrl();
-            }
-        }).addOnCompleteListener(new OnCompleteListener<Uri>() {
-            @Override
-            public void onComplete(@NonNull Task<Uri> task) {
-                if (task.isSuccessful()) {
-                    Uri downloadUri = task.getResult();
-                } else {
-                    // Handle failures
-                    // ...
-                }
-            }
-        });
-    }
 }

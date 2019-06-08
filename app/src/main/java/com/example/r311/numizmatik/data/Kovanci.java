@@ -57,8 +57,6 @@ public class Kovanci {
         this.slika = slika;
     }
 
-
-
     public Kovanci(String drzava, int vrednost, String slika) {
         this.drzava = drzava;
         this.vrednost = vrednost;
