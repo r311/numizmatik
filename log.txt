@@ -1,0 +1,41 @@
+commit 770bd2c69c981c2d52496c466951d87c34d9294e
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Thu Jun 13 13:10:43 2019 +0200
+
+    dodana lokoacija kovanca in prikaz lokacije na zemljevidu
+
+commit 75003bbf4f4f350f924690122bdd1b58e49737fc
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Sun Jun 9 00:16:23 2019 +0200
+
+    optimizacija kode
+
+commit 85ce9ae2dcac8b40680189a014570fe7e651b095
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Sun Jun 9 00:09:58 2019 +0200
+
+    dodan razred lokacije
+
+commit 21372fed5f53641c7ae8eaf65bb8d3d047320ba8
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Fri Jun 7 20:53:31 2019 +0200
+
+    dodana primerjava kovanca in popup.xml pridobljene primerjave
+
+commit 2d8eced7bb8ed1761a85a2a0b6ce4f1a44034755
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Fri Jun 7 00:01:59 2019 +0200
+
+    pridobivanje slik iz firebase databasea, iskanje in obrezovanje kovanca
+
+commit d118b5c3c19dd4b8ec425c030b9d4c6d34113b02
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Thu Jun 6 19:37:15 2019 +0200
+
+    povezava na firebase bazo za shranjevanje slik in objektov
+
+commit e24a1851d2dbd06f02abcc1fc64404b18ac5e46c
+Author: r311 <tamara.zavec@gmail.com>
+Date:   Sat Jun 1 10:40:40 2019 +0200
+
+    osnova

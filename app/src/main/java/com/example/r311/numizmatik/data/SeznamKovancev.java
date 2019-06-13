@@ -37,6 +37,7 @@ public class SeznamKovancev {
         this.arrayKovanci = arrayKovanci;
     }
 
+
     public void dodaj(Kovanec k){arrayKovanci.add(k);}
 
     @Override
