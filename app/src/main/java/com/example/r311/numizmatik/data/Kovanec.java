@@ -1,11 +1,14 @@
 package com.example.r311.numizmatik.data;
 
-public class Kovanci {
+import java.io.Serializable;
+
+public class Kovanec implements Serializable {
     String uuid;
     String slika;
     String drzava;
     int vrednost;
     int	stevec;
+    Lokacija lokacija;
 
     public String getUuid() {
         return uuid;
@@ -47,19 +50,25 @@ public class Kovanci {
         this.stevec = stevec;
     }
 
-    public Kovanci() {
+    public Lokacija getLokacija() {
+        return lokacija;
     }
 
-    public Kovanci(String uuid, String drzava, int vrednost, String slika) {
+    public Kovanec() {
+    }
+
+    public Kovanec(String uuid, String drzava, int vrednost, String slika, Lokacija lok) {
         this.uuid = uuid;
         this.drzava = drzava;
         this.vrednost = vrednost;
         this.slika = slika;
+        this.lokacija = lok;
     }
 
-    public Kovanci(String drzava, int vrednost, String slika) {
+    public Kovanec(String drzava, int vrednost, String slika) {
         this.drzava = drzava;
         this.vrednost = vrednost;
         this.slika = slika;
     }
+
 }

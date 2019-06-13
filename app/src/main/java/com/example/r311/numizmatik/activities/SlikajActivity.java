@@ -1,18 +1,22 @@
 package com.example.r311.numizmatik.activities;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -26,9 +30,13 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.example.r311.numizmatik.R;
-import com.example.r311.numizmatik.data.Kovanci;
+import com.example.r311.numizmatik.data.Kovanec;
+import com.example.r311.numizmatik.data.Lokacija;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -82,6 +90,12 @@ public class SlikajActivity extends AppCompatActivity {
     private ProgressBar pgBar;
     private String filePath;
 
+    //lokacija
+    Lokacija gLokacija;
+    Location currentLocation;
+    FusedLocationProviderClient fusedLocationProviderClient;
+    private static final int REQUEST_CODE = 101;
+
     // Create a storage reference from our app
     StorageReference storage;
 
@@ -114,13 +128,13 @@ public class SlikajActivity extends AppCompatActivity {
     };
 
     @SuppressLint("StaticFieldLeak")
-    AsyncTask<ArrayList<Kovanci>, Void, Bitmap> compareTask = new AsyncTask<ArrayList<Kovanci>, Void, Bitmap>() {
+    AsyncTask<ArrayList<Kovanec>, Void, Bitmap> compareTask = new AsyncTask<ArrayList<Kovanec>, Void, Bitmap>() {
         @Override
-        protected Bitmap doInBackground(ArrayList<Kovanci>... voids) {
+        protected Bitmap doInBackground(ArrayList<Kovanec>... voids) {
             double bestSimiliarity = 0;
-            Kovanci bestKovanc = new Kovanci();
+            Kovanec bestKovanc = new Kovanec();
             Bitmap bestBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);;
-            for(Kovanci k: voids[0]) {
+            for(Kovanec k: voids[0]) {
                 try {
                     URL url = new URL(k.getSlika());
                     Bitmap image = BitmapFactory.decodeStream(url.openStream());
@@ -187,6 +201,8 @@ public class SlikajActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_slikaj);
 
+        gLokacija = new Lokacija();
+
         context = this;
         imageView = (ImageView) findViewById(R.id.imageView);
         btnUpload = (Button) findViewById(R.id.btnUpload);
@@ -200,6 +216,9 @@ public class SlikajActivity extends AppCompatActivity {
 
         storage = FirebaseStorage.getInstance().getReference("slike");
         database = FirebaseDatabase.getInstance().getReference("slike");
+
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        fetchLastLocation();
 
         //Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         //startActivityForResult(intent,0);
@@ -231,15 +250,15 @@ public class SlikajActivity extends AppCompatActivity {
                 //cropPicture(mImgURI);
                 pgBar.setVisibility(View.VISIBLE);
                 trigger = true;
-                final ArrayList<Kovanci> kovSeznam = new ArrayList<Kovanci>();
+                final ArrayList<Kovanec> kovSeznam = new ArrayList<Kovanec>();
                 DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference().child("slike");
                 dbRef.addValueEventListener(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                         if(trigger) {
-                            ArrayList<Kovanci> kovancList = new ArrayList<Kovanci>();
+                            ArrayList<Kovanec> kovancList = new ArrayList<Kovanec>();
                             for (DataSnapshot dataSnapshot1 : dataSnapshot.getChildren()) {
-                                Kovanci k = dataSnapshot1.getValue(Kovanci.class);
+                                Kovanec k = dataSnapshot1.getValue(Kovanec.class);
                                 //compare(k.getSlika());
                                 kovancList.add(k);
                             }
@@ -295,13 +314,6 @@ public class SlikajActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
-
-        //mImgURI = getImageUri(this, (Bitmap) data.getExtras().get("data"));
-        //bitmap = (Bitmap)data.getExtras().get("data");
-
-        //mImgURI = data.getData();
-
         try {
             bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), mImgURI);
         } catch (IOException e) {
@@ -379,11 +391,12 @@ public class SlikajActivity extends AppCompatActivity {
                 fileReference.getDownloadUrl().addOnSuccessListener(new OnSuccessListener<Uri>() {
                     @Override
                     public void onSuccess(Uri uri) {
-                        Kovanci uploadKovanec = new Kovanci(
+                        Kovanec uploadKovanec = new Kovanec(
                                 UUID.randomUUID().toString().replace("-", ""),
                                 txtDrzava.getText().toString().trim(),
                                 Integer.parseInt(txtVrednost.getText().toString()),
-                                uri.toString()
+                                uri.toString(),
+                                gLokacija
                         );
 
                         database.child(String.valueOf(System.currentTimeMillis()).replace("."+"#"+"$"+","+"["+"]", "")
@@ -397,16 +410,14 @@ public class SlikajActivity extends AppCompatActivity {
         });
     }
 
-    private void cropPicture(Uri slikaPath){ //Bitmap
+    private void cropPicture(Uri pathFile){ //Bitmap
         Mat mat = new Mat();
         Bitmap bmp32 = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         Utils.bitmapToMat(bmp32, mat);
-        //Mat src = Imgcodecs.imread(String.valueOf(slikaPath), Imgcodecs.IMREAD_COLOR);
         Log.i("src",String.valueOf(mat));
 
         Mat gray = new Mat();
         Imgproc.cvtColor(mat, gray, Imgproc.COLOR_BGR2GRAY);
-        //Imgproc.medianBlur(gray, gray, 5);
         Mat circles = new Mat();
         Imgproc.HoughCircles(gray, circles, Imgproc.HOUGH_GRADIENT, 1.0,
                 (double)gray.rows()/16, // vrednost za detekcijo kroga v razlicnih razdalijah
@@ -489,4 +500,23 @@ public class SlikajActivity extends AppCompatActivity {
        // }
     }
 
+    //za lokacijo
+    private void fetchLastLocation() {
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+        }
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if(location != null){
+                    currentLocation = location;
+                    Toast.makeText(getApplicationContext(), currentLocation.getLatitude() +""+
+                            currentLocation.getLongitude(), Toast.LENGTH_SHORT).show();
+                    gLokacija.setxCrd(currentLocation.getLatitude());
+                    gLokacija.setyCrd(currentLocation.getLongitude());
+                }
+            }
+        });
+    }
 }

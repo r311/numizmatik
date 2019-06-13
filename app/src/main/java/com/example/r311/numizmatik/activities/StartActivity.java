@@ -1,16 +1,18 @@
 package com.example.r311.numizmatik.activities;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 
 import com.example.r311.numizmatik.R;
-import com.example.r311.numizmatik.data.Kovanci;
-import com.example.r311.numizmatik.data.SeznamKovancev;
 
 public class StartActivity extends AppCompatActivity {
+    private static final int REQUEST_CODE = 101;
     public static void main(String s[]){
 
     }
@@ -19,6 +21,7 @@ public class StartActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_start);
 
+        permisions();
 
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.btnOpenColection);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -35,19 +38,19 @@ public class StartActivity extends AppCompatActivity {
                 startActivity(new Intent(StartActivity.this, SlikajActivity.class));
             }
         });
+
     }
 
-
-    private SeznamKovancev initSeznamKovanci(){
-        SeznamKovancev seznam = new SeznamKovancev("Euro","bankovci");
-
-        Kovanci k1 = new Kovanci("38828282", "Slovenia", 2, "1");
-        Kovanci k2 = new Kovanci("55353443", "Avstrija", 2, "4");
-
-        seznam.dodaj(k1);
-        seznam.dodaj(k1);
-        seznam.dodaj(k2);
-
-        return seznam;
+    private void permisions(){
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+        }
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, REQUEST_CODE);
+        }
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE);
+        }
     }
+
 }

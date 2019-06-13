@@ -5,7 +5,7 @@ import java.util.ArrayList;
 public class SeznamKovancev {
     String imeSeznama;
     String vrstaSeznama;
-    public ArrayList<Kovanci> arrayKovanci;
+    public ArrayList<Kovanec> arrayKovanci;
 
     public SeznamKovancev(String imeSeznama, String vrstaSeznama) {
         this.imeSeznama = imeSeznama;
@@ -29,15 +29,15 @@ public class SeznamKovancev {
         this.vrstaSeznama = vrstaSeznama;
     }
 
-    public ArrayList<Kovanci> getArrayKovanci() {
+    public ArrayList<Kovanec> getArrayKovanci() {
         return arrayKovanci;
     }
 
-    public void setArrayKovanci(ArrayList<Kovanci> arrayKovanci) {
+    public void setArrayKovanci(ArrayList<Kovanec> arrayKovanci) {
         this.arrayKovanci = arrayKovanci;
     }
 
-    public void dodaj(Kovanci k){arrayKovanci.add(k);}
+    public void dodaj(Kovanec k){arrayKovanci.add(k);}
 
     @Override
     public String toString() {

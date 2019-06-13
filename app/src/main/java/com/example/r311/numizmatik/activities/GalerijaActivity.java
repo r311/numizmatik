@@ -10,7 +10,7 @@ import android.widget.Toast;
 
 import com.example.r311.numizmatik.R;
 import com.example.r311.numizmatik.adapters.KovanciAdapter;
-import com.example.r311.numizmatik.data.Kovanci;
+import com.example.r311.numizmatik.data.Kovanec;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -21,21 +21,14 @@ import java.util.ArrayList;
 
 public class GalerijaActivity extends AppCompatActivity {
 
-    private ArrayList<Kovanci> initKovanci(){
-        ArrayList<Kovanci> arr = new ArrayList<>();
-
-        arr.add(new Kovanci("38828282", "Slovenia", 2, "1"));
-        arr.add(new Kovanci("55353443", "Avstrija", 2, "4"));
-
-        return  arr;
-    }
+    private ArrayList<Kovanec> kov;
 
     DatabaseReference dbRef;
     private RecyclerView rvkovanci;
     private RecyclerView.Adapter adapter;
-    //KovanciAdapter kovAdapter;
-    ArrayList<Kovanci> kovSeznam;
+    ArrayList<Kovanec> kovSeznam;
     Context context;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,21 +37,18 @@ public class GalerijaActivity extends AppCompatActivity {
 
         dbRef = FirebaseDatabase.getInstance().getReference().child("slike");
 
-        //ArrayList<Kovanci> kov = initKovanci();
-
         this.rvkovanci = (RecyclerView) findViewById(R.id.rv_kovanci);
         RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(this);
         this.rvkovanci.setLayoutManager(mLayoutManager);
 
-        kovSeznam = new ArrayList<Kovanci>();
+        kovSeznam = new ArrayList<Kovanec>();
         dbRef.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 for(DataSnapshot dataSnapshot1: dataSnapshot.getChildren()){
-                    Kovanci k = dataSnapshot1.getValue(Kovanci.class);
+                    Kovanec k = dataSnapshot1.getValue(Kovanec.class);
                     kovSeznam.add(k);
                 }
-                //kovAdapter = new KovanciAdapter(GalerijaActivity.this, kovSeznam);
                 adapter = new KovanciAdapter(context, kovSeznam);
                 rvkovanci.setAdapter(adapter);
             }
@@ -69,7 +59,6 @@ public class GalerijaActivity extends AppCompatActivity {
             }
         });
 
-        //adapter = new KovanciAdapter(kovSeznam);
-        //this.rvkovanci.setAdapter(adapter);
     }
+
 }
